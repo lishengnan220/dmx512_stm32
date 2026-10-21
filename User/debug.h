@@ -6,8 +6,9 @@
   * Self-contained ASCII output (no printf / no C-library retargeting needed),
   * so it compiles cleanly under Keil AC5 regardless of MicroLIB settings.
   *
-  * Hardware mapping: USART3, TX = PB10, 115200 8N1 (debug-only UART).
-  * Connect a USB-TTL adapter's RX to PB10 to watch the log.
+ * Hardware mapping: USART1 (on-board CH340 USB-UART), TX = PA9, RX = PA10,
+ * 115200 8N1. This is the SAME UART shared by the host frame protocol and the
+ * interactive shell. Debug_Init() owns the USART1 hardware and RX interrupt.
   ******************************************************************************
   */
 
@@ -19,18 +20,22 @@
 /* Master debug switch: set to 0 to strip all debug output from the build. */
 #define DEBUG_ENABLE  1u
 
-/* Debug UART mapping (USART3, TX = PB10). */
-#define DEBUG_USART         USART3
-#define DEBUG_USART_CLK     RCC_APB1Periph_USART3
-#define DEBUG_TX_GPIO       GPIOB
-#define DEBUG_TX_GPIO_CLK   RCC_APB2Periph_GPIOB
-#define DEBUG_TX_PIN        GPIO_Pin_10
+/* Console UART mapping (USART1, TX = PA9, RX = PA10, on-board CH340). */
+#define DEBUG_USART         USART1
+#define DEBUG_USART_CLK     RCC_APB2Periph_USART1
+#define DEBUG_TX_GPIO       GPIOA
+#define DEBUG_TX_GPIO_CLK   RCC_APB2Periph_GPIOA
+#define DEBUG_TX_PIN        GPIO_Pin_9
+#define DEBUG_RX_GPIO       GPIOA
+#define DEBUG_RX_GPIO_CLK   RCC_APB2Periph_GPIOA
+#define DEBUG_RX_PIN        GPIO_Pin_10
 
 void Debug_Init(void);
 void Debug_SendByte(uint8_t b);
 void Debug_SendString(const char *str);
 void Debug_SendHex8(uint8_t v);
 void Debug_SendHex16(uint16_t v);
+void Debug_SendDecU16(uint16_t v);
 
 /* Convenience macros that compile to nothing when debug is disabled. */
 #if DEBUG_ENABLE

@@ -14,15 +14,9 @@
 #include "debug.h"
 #include "status.h"
 
-/* ============================ Uplink UART mapping ============================
- * Host link: USART1, RX = PA10, 115200 8N1, receive only.
- * Adjust these macros if the host UART uses different pins.
- * =========================================================================== */
-#define PROTO_USART         USART1
-#define PROTO_USART_CLK     RCC_APB2Periph_USART1
-#define PROTO_RX_GPIO       GPIOA
-#define PROTO_RX_GPIO_CLK   RCC_APB2Periph_GPIOA
-#define PROTO_RX_PIN        GPIO_Pin_10
+/* The USART1 hardware (GPIO, UART, NVIC, RX interrupt) is owned by the console
+ * module (debug.c). This file only parses the byte stream, so no UART macros
+ * are needed here. */
 
 /* ============================ Parser state ============================ */
 static ProtocolState_t state = STATE_IDLE;
@@ -44,43 +38,13 @@ static volatile uint8_t rx_error_byte;
  * ------------------------------------------------------------------------ */
 void Protocol_Init(void)
 {
-    GPIO_InitTypeDef  gpio;
-    USART_InitTypeDef usart;
-    NVIC_InitTypeDef  nvic;
-
-    /* 1. Enable clocks: GPIOA + USART1 (both on APB2). */
-    RCC_APB2PeriphClockCmd(PROTO_RX_GPIO_CLK | PROTO_USART_CLK, ENABLE);
-
-    /* 2. RX pin as floating input. */
-    gpio.GPIO_Pin   = PROTO_RX_PIN;
-    gpio.GPIO_Speed = GPIO_Speed_50MHz;
-    gpio.GPIO_Mode  = GPIO_Mode_IN_FLOATING;
-    GPIO_Init(PROTO_RX_GPIO, &gpio);
-
-    /* 3. UART: 115200, 8 data bits, 1 stop bit, no parity, RX only. */
-    usart.USART_BaudRate            = 115200u;
-    usart.USART_WordLength          = USART_WordLength_8b;
-    usart.USART_StopBits            = USART_StopBits_1;
-    usart.USART_Parity              = USART_Parity_No;
-    usart.USART_Mode                = USART_Mode_Rx;
-    usart.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
-    USART_Init(PROTO_USART, &usart);
-
-    /* 4. Enable RX-not-empty interrupt. */
-    USART_ITConfig(PROTO_USART, USART_IT_RXNE, ENABLE);
-
-    /* 5. NVIC: group 2, preemption priority 1. */
-    NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
-    nvic.NVIC_IRQChannel                   = USART1_IRQn;
-    nvic.NVIC_IRQChannelPreemptionPriority = 1;
-    nvic.NVIC_IRQChannelSubPriority        = 0;
-    nvic.NVIC_IRQChannelCmd                = ENABLE;
-    NVIC_Init(&nvic);
-
-    /* 6. Enable UART and reset the state machine. */
-    USART_Cmd(PROTO_USART, ENABLE);
-    state         = STATE_IDLE;
-    payload_index = 0u;
+    /* USART1 hardware (GPIO, UART, NVIC, RX interrupt) is owned by the
+     * console module (Debug_Init in debug.c). Here we only reset the parser
+     * state so a stale partial frame from a previous run is discarded. */
+    state          = STATE_IDLE;
+    payload_index  = 0u;
+    rx_ready       = 0u;
+    rx_error_ready = 0u;
 
     DBG_STR("Protocol Init OK\r\n");
 }
@@ -145,14 +109,12 @@ void Protocol_RxByte(uint8_t byte)
 }
 
 /* --------------------------------------------------------------------------
- * UART1 receive interrupt handler.
+ * Public: return 1 while the state machine is mid-frame (state != IDLE).
+ * Used by the console UART ISR to decide between binary-frame and shell modes.
  * ------------------------------------------------------------------------ */
-void USART1_IRQHandler(void)
+uint8_t Protocol_InFrame(void)
 {
-    if (USART_GetITStatus(PROTO_USART, USART_IT_RXNE) != RESET)
-    {
-        Protocol_RxByte((uint8_t)USART_ReceiveData(PROTO_USART));
-    }
+    return (state != STATE_IDLE) ? 1u : 0u;
 }
 
 /* --------------------------------------------------------------------------

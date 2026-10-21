@@ -20,6 +20,7 @@
 #include "protocol.h"
 #include "debug.h"
 #include "status.h"
+#include "shell.h"
 
 #define SOFT_DELAY Delay(0x0FFFFF);
 
@@ -32,7 +33,9 @@ void Delay(__IO u32 nCount);
   */
 int main(void)
 {
-	/* 1. Debug UART first so log output is available from the very start. */
+	/* 1. Console UART (on-board CH340, USART1 TX=PA9/RX=PA10, 115200 8N1).
+	 *    Also sets up the RX interrupt that feeds both the host frame parser
+	 *    and the interactive shell. */
 	Debug_Init();
 	DBG_STR("\r\n=== DMX512 Light Controller Boot ===\r\n");
 
@@ -42,8 +45,12 @@ int main(void)
 	/* 3. DMX512 output: USART2/PA2 (250kbps 8N2) + TIM4 + RS485 dir PA1. */
 	DMX512_Init();
 
-	/* 4. Host UART receiver: USART1/PA10 (115200 8N1) + frame state machine. */
+	/* 4. Host frame parser: resets the protocol state machine (USART1 HW is
+	 *    already initialized by Debug_Init). */
 	Protocol_Init();
+
+	/* 5. Interactive shell: resets the command line buffer (shares USART1). */
+	Shell_Init();
 
 	while (1)
 	{
@@ -54,6 +61,9 @@ int main(void)
 
 		/* Drain parsed frames / errors: print + update status LED. */
 		Protocol_Poll();
+
+		/* Parse console commands and advance the self-test animation. */
+		Shell_Poll();
 	}
 }
 

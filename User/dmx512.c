@@ -176,6 +176,18 @@ void DMX512_SetChannel(uint16_t ch, uint8_t value)
 }
 
 /* --------------------------------------------------------------------------
+ * Public: read back a single channel (internal / debug use).
+ * ------------------------------------------------------------------------ */
+uint8_t DMX512_GetChannel(uint16_t ch)
+{
+    if ((ch >= 1u) && (ch <= DMX512_CHANNEL_NUM))
+    {
+        return dmx_buffer[ch];
+    }
+    return 0u;
+}
+
+/* --------------------------------------------------------------------------
  * Public: transmit one complete DMX512 frame (blocking).
  * ------------------------------------------------------------------------ */
 void DMX512_SendFrame(void)

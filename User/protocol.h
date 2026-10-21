@@ -41,6 +41,10 @@ typedef enum
 void Protocol_Init(void);
 void Protocol_RxByte(uint8_t byte);
 
+/* Return 1 while the state machine is mid-frame (state != STATE_IDLE). Used by
+ * the console UART ISR to decide between binary-frame and shell modes. */
+uint8_t Protocol_InFrame(void);
+
 /* Main-loop poll: drains the RX result cache, writes DMX512, prints the
  * parsed frame over the debug UART and updates the status LED. Call this
  * repeatedly from the main loop (never from the ISR). */

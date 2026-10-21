@@ -1,7 +1,12 @@
 /**
   ******************************************************************************
   * @file    debug.c
-  * @brief   Lightweight debug output implementation (USART3 TX).
+  * @brief   Console UART (USART1, on-board CH340) - implementation.
+  *
+  * Owns the USART1 hardware: full-duplex 115200 8N1 (TX = PA9, RX = PA10),
+  * the RXNE interrupt and the NVIC setup. The RX interrupt demultiplexes the
+  * incoming byte stream: a 0xAA frame head routes into the host frame parser
+  * (protocol.c), any other byte routes into the interactive shell (shell.c).
   *
   * Note: Debug_SendByte() blocks on TXE. In a high-rate ISR this would stall
   * the interrupt; acceptable for debugging, but the debug calls should be
@@ -10,31 +15,88 @@
   */
 
 #include "debug.h"
+#include "protocol.h"
+#include "shell.h"
+
+/* 1 while a binary host frame is being received, 0 while in text mode. */
+static volatile uint8_t d_debug_binary = 0u;
 
 /* --------------------------------------------------------------------------
- * Public: initialize the debug UART (USART3 TX, 115200 8N1).
+ * USART1 RX interrupt: demultiplex the incoming byte stream.
+ *   0xAA        -> binary host frame (protocol.c state machine)
+ *   any other   -> interactive shell text (shell.c ring buffer)
+ * ------------------------------------------------------------------------ */
+void USART1_IRQHandler(void)
+{
+    if (USART_GetITStatus(DEBUG_USART, USART_IT_RXNE) != RESET)
+    {
+        uint8_t b = (uint8_t)USART_ReceiveData(DEBUG_USART);
+
+        if (b == PROTO_FRAME_HEAD1)
+        {
+            d_debug_binary = 1u;
+            Protocol_RxByte(b);
+        }
+        else if (d_debug_binary != 0u)
+        {
+            Protocol_RxByte(b);
+            if (Protocol_InFrame() == 0u)
+            {
+                d_debug_binary = 0u;
+            }
+        }
+        else
+        {
+            Shell_RxByte(b);
+        }
+    }
+}
+
+/* --------------------------------------------------------------------------
+ * Public: initialize the console UART (USART1 TX = PA9 / RX = PA10, 115200).
  * ------------------------------------------------------------------------ */
 void Debug_Init(void)
 {
     GPIO_InitTypeDef  gpio;
     USART_InitTypeDef usart;
+    NVIC_InitTypeDef  nvic;
 
-    RCC_APB2PeriphClockCmd(DEBUG_TX_GPIO_CLK, ENABLE);
-    RCC_APB1PeriphClockCmd(DEBUG_USART_CLK, ENABLE);
+    /* USART1 is on APB2 together with GPIOA. */
+    RCC_APB2PeriphClockCmd(DEBUG_TX_GPIO_CLK | DEBUG_RX_GPIO_CLK | DEBUG_USART_CLK, ENABLE);
 
+    /* TX pin as AF push-pull (USART1_TX = PA9). */
     gpio.GPIO_Pin   = DEBUG_TX_PIN;
     gpio.GPIO_Speed = GPIO_Speed_50MHz;
     gpio.GPIO_Mode  = GPIO_Mode_AF_PP;
     GPIO_Init(DEBUG_TX_GPIO, &gpio);
 
+    /* RX pin as floating input (USART1_RX = PA10, on-board CH340). */
+    gpio.GPIO_Pin   = DEBUG_RX_PIN;
+    gpio.GPIO_Speed = GPIO_Speed_50MHz;
+    gpio.GPIO_Mode  = GPIO_Mode_IN_FLOATING;
+    GPIO_Init(DEBUG_RX_GPIO, &gpio);
+
     usart.USART_BaudRate            = 115200u;
     usart.USART_WordLength          = USART_WordLength_8b;
     usart.USART_StopBits            = USART_StopBits_1;
     usart.USART_Parity              = USART_Parity_No;
-    usart.USART_Mode                = USART_Mode_Tx;
+    usart.USART_Mode                = USART_Mode_Tx | USART_Mode_Rx;
     usart.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
     USART_Init(DEBUG_USART, &usart);
     USART_Cmd(DEBUG_USART, ENABLE);
+
+    /* RX-not-empty interrupt: demultiplex into protocol parser / shell. */
+    USART_ITConfig(DEBUG_USART, USART_IT_RXNE, ENABLE);
+
+    /* NVIC: group 2, preemption priority 1. */
+    NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
+    nvic.NVIC_IRQChannel                   = USART1_IRQn;
+    nvic.NVIC_IRQChannelPreemptionPriority = 1;
+    nvic.NVIC_IRQChannelSubPriority        = 0;
+    nvic.NVIC_IRQChannelCmd                = ENABLE;
+    NVIC_Init(&nvic);
+
+    d_debug_binary = 0u;
 }
 
 /* --------------------------------------------------------------------------
@@ -85,4 +147,32 @@ void Debug_SendHex16(uint16_t v)
 {
     Debug_SendHex8((uint8_t)(v >> 8));
     Debug_SendHex8((uint8_t)(v & 0xFFu));
+}
+
+/* --------------------------------------------------------------------------
+ * Public: send an unsigned 16-bit value as decimal ASCII ("0".."65535").
+ * ------------------------------------------------------------------------ */
+void Debug_SendDecU16(uint16_t v)
+{
+    char tmp[5];
+    uint8_t len = 0u;
+
+    if (v == 0u)
+    {
+        Debug_SendByte('0');
+        return;
+    }
+
+    while (v > 0u)
+    {
+        tmp[len] = (char)('0' + (v % 10u));
+        len++;
+        v /= 10u;
+    }
+
+    while (len > 0u)
+    {
+        len--;
+        Debug_SendByte((uint8_t)tmp[len]);
+    }
 }

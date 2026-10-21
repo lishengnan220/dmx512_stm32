@@ -29,5 +29,6 @@ typedef enum
 void Status_Init(void);                    /* Init LED GPIO, show boot state */
 void Status_Set(SystemStatus_t s);         /* Record a new state (ISR-safe)  */
 void Status_Refresh(void);                 /* Apply current state to the LED */
+SystemStatus_t Status_Get(void);           /* Read the current state         */
 
 #endif /* __STATUS_H */

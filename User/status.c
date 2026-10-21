@@ -42,6 +42,14 @@ void Status_Set(SystemStatus_t s)
 }
 
 /* --------------------------------------------------------------------------
+ * Public: read the current state.
+ * ------------------------------------------------------------------------ */
+SystemStatus_t Status_Get(void)
+{
+    return current;
+}
+
+/* --------------------------------------------------------------------------
  * Public: apply the current state to the RGB LED.
  * ------------------------------------------------------------------------ */
 void Status_Refresh(void)

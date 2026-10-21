@@ -53,6 +53,7 @@ void    DMX512_Init(void);
 void    DMX512_SetSegment(uint8_t segment,
                           uint8_t r, uint8_t g, uint8_t b, uint8_t w);
 void    DMX512_SetChannel(uint16_t ch, uint8_t value);
+uint8_t DMX512_GetChannel(uint16_t ch);
 void    DMX512_SendFrame(void);
 uint8_t DMX512_IsBusy(void);
 
