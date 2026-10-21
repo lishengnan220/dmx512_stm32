@@ -1,0 +1,12 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# VS Code
+.vscode/
+
+# Keil uVision build outputs
+Listing/
+Output/
+*.uvguix.*
