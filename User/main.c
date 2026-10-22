@@ -33,7 +33,7 @@ void Delay(__IO u32 nCount);
   */
 int main(void)
 {
-	/* 1. Console UART (on-board CH340, USART1 TX=PA9/RX=PA10, 115200 8N1).
+	/* 1. Console UART (external USB-TTL, USART3 TX=PB10/RX=PB11, 115200 8N1).
 	 *    Also sets up the RX interrupt that feeds both the host frame parser
 	 *    and the interactive shell. */
 	Debug_Init();
@@ -45,11 +45,11 @@ int main(void)
 	/* 3. DMX512 output: USART2/PA2 (250kbps 8N2) + TIM4 + RS485 dir PA1. */
 	DMX512_Init();
 
-	/* 4. Host frame parser: resets the protocol state machine (USART1 HW is
+	/* 4. Host frame parser: resets the protocol state machine (USART3 HW is
 	 *    already initialized by Debug_Init). */
 	Protocol_Init();
 
-	/* 5. Interactive shell: resets the command line buffer (shares USART1). */
+	/* 5. Interactive shell: resets the command line buffer (shares USART3). */
 	Shell_Init();
 
 	while (1)

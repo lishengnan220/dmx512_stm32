@@ -111,7 +111,7 @@ void DMX512_SendFrame(void);                                // 发送一帧，�
 
 ### 3.3 UART 初始化（115200 接收）
 
-- 选择空闲 UART（如 `USART1`），波特率 `115200`、8 数据位、无校验、1 停止位。
+- 选择空闲 UART（如 `USART3`），波特率 `115200`、8 数据位、无校验、1 停止位。
 - 使能接收中断（`USART_IT_RXNE`）并配置 NVIC 优先级。
 - 配置对应 RX 引脚为浮空输入（GPIO），TX 可暂不用于上行。
 
@@ -270,7 +270,7 @@ dmx_buffer[0..512]
 ### 7.1 时钟 RCC
 | 函数 | 用途 |
 |------|------|
-| `RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOx \| RCC_APB2Periph_USART1 \| RCC_APB2Periph_AFIO, ENABLE)` | 使能 GPIO、USART1、AFIO 时钟 |
+| `RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE)` / `RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART3, ENABLE)` | 使能 GPIOB（APB2）、USART3（APB1）时钟 |
 | `RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE)` | 使能 TIM2 时钟 |
 
 ### 7.2 GPIO
@@ -279,12 +279,12 @@ dmx_buffer[0..512]
 | `GPIO_Init(GPIOx, &GPIO_InitStructure)` | 配置 USART TX/RX、RS485 DE/RE 引脚模式与速度 |
 | `GPIO_SetBits(GPIOx, Pin)` | 拉高（MAB 高电平、DE/RE 置发送） |
 | `GPIO_ResetBits(GPIOx, Pin)` | 拉低（Break 低电平、DE/RE 置接收） |
-| `GPIO_PinRemapConfig(GPIO_Remap_USART1, ENABLE)` | 可选：USART 引脚重映射 |
+| `GPIO_PinRemapConfig(...)` | 本工程未使用（USART3 默认引脚 PB10/PB11，无需重映射） |
 
 ### 7.3 串口 USART
 | 函数 | 用途 |
 |------|------|
-| `USART_Init(USART1, &USART_InitStructure)` | 配置 115200 8N1（接收） |
+| `USART_Init(USART3, &USART_InitStructure)` | 配置 115200 8N1（接收） |
 | `USART_Init(USARTx, &USART_InitStructure)` | 配置 250kbps 8N2（DMX 发送） |
 | `USART_Cmd(USARTx, ENABLE)` | 使能 USART |
 | `USART_ITConfig(USARTx, USART_IT_RXNE, ENABLE)` | 使能接收中断 |
@@ -325,7 +325,7 @@ dmx_buffer[0..512]
 ### 7.7 中断服务函数（在 `stm32f10x_it.c` 中实现，需同步在 `stm32f10x_it.h` 声明）
 | 函数 | 用途 |
 |------|------|
-| `USART1_IRQHandler()` | UART 接收中断，调用 `Protocol_RxByte()` |
+| `USART3_IRQHandler()` | UART 接收中断，调用 `Protocol_RxByte()` |
 | `TIM2_IRQHandler()` | Break/MAB 定时或帧周期定时 |
 | `DMA1_Channelx_IRQHandler()` | 可选：DMA 发送完成 |
 
@@ -352,11 +352,11 @@ dmx_buffer[0..512]
 
 | 项 | 值 |
 |----|----|
-| 调试控制台 UART | `USART1`，TX = `PA9`，RX = `PA10`（板载 CH340） |
+| 调试控制台 UART | `USART3`，TX = `PB10`，RX = `PB11`（外部 USB-TTL） |
 | 波特率 | 115200，8N1，全双工（收发） |
-| 接线 | 板载「USB TO UART」口（CH340），无需外接 USB-TTL |
+| 接线 | `PB10`（TX）、`PB11`（RX）经杜邦线接外部 USB-TTL，模块侧 TX↔RX 交叉、共地 |
 
-> 调试控制台与上位机私有帧共用 `USART1`：首字节 `0xAA` 走帧协议，其余走命令行；DMX 发送口（`USART2`）独立，互不干扰。
+> 调试控制台与上位机私有帧共用 `USART3`：首字节 `0xAA` 走帧协议，其余走命令行；DMX 发送口（`USART2`）独立，互不干扰。
 
 ### 8.3 接口
 
@@ -408,9 +408,9 @@ ERR: bad byte 0x12 in HEAD1, reset
 |------|------|--------------|------|
 | DMX512 发送 TX | `PA2` | `USART2_TX` | 250kbps 8N2，复用推挽 |
 | RS485 方向 DE/RE | `PA1` | `USART2_RTS` | 推挽输出，高=发送/低=接收 |
-| 上位机接收 RX | `PA10` | `USART1_RX` | 115200 8N1，浮空输入 |
-| 调试控制台 TX | `PA9` | `USART1_TX` | 115200 8N1，复用推挽（命令行回显） |
-| 调试控制台 RX | `PA10` | `USART1_RX` | 与上位机 RX 共用，115200 8N1 |
+| 上位机接收 RX | `PB11` | `USART3_RX` | 115200 8N1，浮空输入 |
+| 调试控制台 TX | `PB10` | `USART3_TX` | 115200 8N1，复用推挽（命令行回显） |
+| 调试控制台 RX | `PB11` | `USART3_RX` | 与上位机 RX 共用，115200 8N1 |
 | 延时定时器 | `TIM4` | — | Break/MAB 微秒级计时 |
 | RGB 指示灯 R | `PB5` | `I2C1_SMBA/SPI3_MOSI` | 低电平点亮（红） |
 | RGB 指示灯 G | `PB0` | `ADC12_IN8/TIM3_CH3` | 低电平点亮（绿） |
@@ -440,17 +440,17 @@ ERR: bad byte 0x12 in HEAD1, reset
 
 ### 10.1 目的
 
-把板载 `USART1`（CH340）升级为**全双工交互式控制台**：上位机通过串口助手发送文本指令，STM32 解析并执行（设置灯带颜色、查询状态、跑自检等），再把结果回显到同一串口。用于脱离上位机私有帧协议的快速人工调试与灯带验收。
+把独立调试口 `USART3`（PB10/PB11，经杜邦线接外部 USB-TTL）升级为**全双工交互式控制台**：上位机通过串口助手发送文本指令，STM32 解析并执行（设置灯带颜色、查询状态、跑自检等），再把结果回显到同一串口。用于脱离上位机私有帧协议的快速人工调试与灯带验收。
 
 ### 10.2 硬件映射
 
 | 项 | 值 |
 |----|----|
-| 控制台 UART | `USART1`，TX = `PA9`，RX = `PA10`（板载 CH340） |
+| 控制台 UART | `USART3`，TX = `PB10`，RX = `PB11`（外部 USB-TTL） |
 | 波特率 | 115200，8N1 |
-| 接线 | 板载「USB TO UART」口，无需外接 USB-TTL |
+| 接线 | `PB10`/`PB11` 经杜邦线接外部 USB-TTL（TX↔RX 交叉、共地） |
 
-> RX 接收统一在 `USART1_IRQHandler`（`debug.c`）内完成，按首字节 `0xAA` 分流：帧协议 → `Protocol_RxByte()`，其余 → `Shell_RxByte()` 入环形缓冲；命令解析与执行在 `Shell_Poll()`（主循环）中完成，避免破坏 DMX512 帧时序。
+> RX 接收统一在 `USART3_IRQHandler`（`debug.c`）内完成，按首字节 `0xAA` 分流：帧协议 → `Protocol_RxByte()`，其余 → `Shell_RxByte()` 入环形缓冲；命令解析与执行在 `Shell_Poll()`（主循环）中完成，避免破坏 DMX512 帧时序。
 
 ### 10.3 指令集（不区分大小写，数值支持十进制或 `0x` 十六进制）
 
@@ -470,7 +470,7 @@ ERR: bad byte 0x12 in HEAD1, reset
 
 ```c
 void Shell_Init(void);           // 复位缓冲、打印横幅与提示符 "> "
-void Shell_RxByte(uint8_t b);    // USART1 接收中断中调用，入环形缓冲
+void Shell_RxByte(uint8_t b);    // USART3 接收中断中调用，入环形缓冲
 void Shell_Poll(void);           // 主循环调用：解析整行命令、推进自检动画
 ```
 

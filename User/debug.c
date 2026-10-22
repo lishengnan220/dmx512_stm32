@@ -1,9 +1,9 @@
 /**
   ******************************************************************************
   * @file    debug.c
-  * @brief   Console UART (USART1, on-board CH340) - implementation.
+  * @brief   Console UART (USART3, external USB-TTL) - implementation.
   *
-  * Owns the USART1 hardware: full-duplex 115200 8N1 (TX = PA9, RX = PA10),
+  * Owns the USART3 hardware: full-duplex 115200 8N1 (TX = PB10, RX = PB11),
   * the RXNE interrupt and the NVIC setup. The RX interrupt demultiplexes the
   * incoming byte stream: a 0xAA frame head routes into the host frame parser
   * (protocol.c), any other byte routes into the interactive shell (shell.c).
@@ -22,11 +22,11 @@
 static volatile uint8_t d_debug_binary = 0u;
 
 /* --------------------------------------------------------------------------
- * USART1 RX interrupt: demultiplex the incoming byte stream.
+ * USART3 RX interrupt: demultiplex the incoming byte stream.
  *   0xAA        -> binary host frame (protocol.c state machine)
  *   any other   -> interactive shell text (shell.c ring buffer)
  * ------------------------------------------------------------------------ */
-void USART1_IRQHandler(void)
+void USART3_IRQHandler(void)
 {
     if (USART_GetITStatus(DEBUG_USART, USART_IT_RXNE) != RESET)
     {
@@ -53,7 +53,7 @@ void USART1_IRQHandler(void)
 }
 
 /* --------------------------------------------------------------------------
- * Public: initialize the console UART (USART1 TX = PA9 / RX = PA10, 115200).
+ * Public: initialize the console UART (USART3 TX = PB10 / RX = PB11, 115200).
  * ------------------------------------------------------------------------ */
 void Debug_Init(void)
 {
@@ -61,16 +61,17 @@ void Debug_Init(void)
     USART_InitTypeDef usart;
     NVIC_InitTypeDef  nvic;
 
-    /* USART1 is on APB2 together with GPIOA. */
-    RCC_APB2PeriphClockCmd(DEBUG_TX_GPIO_CLK | DEBUG_RX_GPIO_CLK | DEBUG_USART_CLK, ENABLE);
+    /* USART3 is on APB1, GPIOB is on APB2. */
+    RCC_APB2PeriphClockCmd(DEBUG_TX_GPIO_CLK | DEBUG_RX_GPIO_CLK, ENABLE);
+    RCC_APB1PeriphClockCmd(DEBUG_USART_CLK, ENABLE);
 
-    /* TX pin as AF push-pull (USART1_TX = PA9). */
+    /* TX pin as AF push-pull (USART3_TX = PB10). */
     gpio.GPIO_Pin   = DEBUG_TX_PIN;
     gpio.GPIO_Speed = GPIO_Speed_50MHz;
     gpio.GPIO_Mode  = GPIO_Mode_AF_PP;
     GPIO_Init(DEBUG_TX_GPIO, &gpio);
 
-    /* RX pin as floating input (USART1_RX = PA10, on-board CH340). */
+    /* RX pin as floating input (USART3_RX = PB11, external USB-TTL). */
     gpio.GPIO_Pin   = DEBUG_RX_PIN;
     gpio.GPIO_Speed = GPIO_Speed_50MHz;
     gpio.GPIO_Mode  = GPIO_Mode_IN_FLOATING;
@@ -90,7 +91,7 @@ void Debug_Init(void)
 
     /* NVIC: group 2, preemption priority 1. */
     NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
-    nvic.NVIC_IRQChannel                   = USART1_IRQn;
+    nvic.NVIC_IRQChannel                   = USART3_IRQn;
     nvic.NVIC_IRQChannelPreemptionPriority = 1;
     nvic.NVIC_IRQChannelSubPriority        = 0;
     nvic.NVIC_IRQChannelCmd                = ENABLE;

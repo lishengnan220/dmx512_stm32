@@ -127,7 +127,7 @@ static void Shell_CmdInfo(void)
     DBG_STR("  (RGBW, "); DBG_SendDecU16(DMX512_SEGMENT_CHANNEL); DBG_STR(" ch each)\r\n");
     DBG_STR("  Channels  : "); DBG_SendDecU16(DMX512_CHANNEL_NUM); DBG_STR("\r\n");
     DBG_STR("  DMX UART  : USART2 PA2, 250 kbps 8N2 (dir PA1)\r\n");
-    DBG_STR("  Uplink    : USART1 PA9/PA10 (CH340), 115200 8N1\r\n");
+    DBG_STR("  Console   : USART3 PB10/PB11 (USB-TTL), 115200 8N1\r\n");
     DBG_STR("            :  host 7-byte frame + shell commands\r\n");
 }
 

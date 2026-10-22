@@ -3,7 +3,7 @@
   * @file    protocol.c
   * @brief   Private frame protocol parser - implementation
   *
-  * Receives the 7-byte host frame on USART1 (115200, 8N1) and drives a
+  * Receives the 7-byte host frame on USART3 (115200, 8N1) and drives a
   * 3-state machine inside the RX interrupt. A fully received frame is written
   * directly to the DMX512 output buffer via DMX512_SetSegment().
   ******************************************************************************
@@ -14,7 +14,7 @@
 #include "debug.h"
 #include "status.h"
 
-/* The USART1 hardware (GPIO, UART, NVIC, RX interrupt) is owned by the console
+/* The USART3 hardware (GPIO, UART, NVIC, RX interrupt) is owned by the console
  * module (debug.c). This file only parses the byte stream, so no UART macros
  * are needed here. */
 
@@ -38,7 +38,7 @@ static volatile uint8_t rx_error_byte;
  * ------------------------------------------------------------------------ */
 void Protocol_Init(void)
 {
-    /* USART1 hardware (GPIO, UART, NVIC, RX interrupt) is owned by the
+    /* USART3 hardware (GPIO, UART, NVIC, RX interrupt) is owned by the
      * console module (Debug_Init in debug.c). Here we only reset the parser
      * state so a stale partial frame from a previous run is discarded. */
     state          = STATE_IDLE;
