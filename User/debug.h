@@ -43,11 +43,13 @@ void Debug_SendDecU16(uint16_t v);
     #define DBG_BYTE(b)     Debug_SendByte((uint8_t)(b))
     #define DBG_HEX8(v)     Debug_SendHex8((v))
     #define DBG_HEX16(v)    Debug_SendHex16((v))
+    #define DBG_SendDecU16(v) Debug_SendDecU16((uint16_t)(v))
 #else
     #define DBG_STR(s)      ((void)0)
     #define DBG_BYTE(b)     ((void)0)
     #define DBG_HEX8(v)     ((void)0)
     #define DBG_HEX16(v)    ((void)0)
+    #define DBG_SendDecU16(v) ((void)0)
 #endif
 
 #endif /* __DEBUG_H */
